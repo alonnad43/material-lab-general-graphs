@@ -1,0 +1,76 @@
+import numpy as np
+import matplotlib.pyplot as plt
+import scipy.stats as stats
+
+# === Raw experimental data ===
+length_mm = np.array([60.4, 22.0, 32.0, 42.0, 12.0])
+mass_g = np.array([1.32, 0.46, 0.67, 1.74, 0.23])
+wire_type = np.array([41, 37, 39, 42, 40])  # 41 and 42 are double-sided
+
+# === Adjust lengths if wire is double-sided ===
+is_double = np.isin(wire_type, [41, 42])
+length_mm[is_double] *= 2  # double the length of wires that loop back
+
+# === Convert units ===
+length_m = length_mm / 1000  # mm → m
+force_n = (mass_g / 1000) * 9.8  # g → kg, then F = m·g
+
+# === Linear regression ===
+slope, intercept = np.polyfit(length_m, force_n, 1)
+fit_line = slope * length_m + intercept
+
+# === Statistical goodness-of-fit metrics ===
+residuals = force_n - fit_line
+ss_res = np.sum(residuals**2)
+ss_tot = np.sum((force_n - np.mean(force_n))**2)
+r_squared = 1 - (ss_res / ss_tot)
+rmse = np.sqrt(ss_res / len(force_n))
+
+# === 95% confidence intervals ===
+n = len(length_m)
+alpha = 0.05
+t_crit = stats.t.ppf(1 - alpha / 2, df=n - 2)
+std_err_slope = np.sqrt(ss_res / (n - 2)) / np.sqrt(np.sum((length_m - np.mean(length_m))**2))
+std_err_intercept = std_err_slope * np.sqrt(np.sum(length_m**2) / n)
+conf_int_slope = (slope - t_crit * std_err_slope, slope + t_crit * std_err_slope)
+conf_int_intercept = (intercept - t_crit * std_err_intercept, intercept + t_crit * std_err_intercept)
+adjusted_r_squared = 1 - (1 - r_squared) * (n - 1) / (n - 2)
+
+# === Plotting ===
+plt.figure(figsize=(8, 5))
+plt.plot(length_m, force_n, 'o', color='orange', label='Measured Force')
+plt.plot(length_m, fit_line, '-', label=f'Fit: F = {slope:.5f}·L + {intercept:.2e}')
+plt.xlabel('Wire Length L (m)')
+plt.ylabel('Force F (N)')
+plt.title('Magnetic Force vs. Wire Length (Corrected)')
+plt.grid(True)
+plt.legend()
+plt.tight_layout()
+
+# === Add statistical annotations ===
+textstr = (f"Slope = {slope:.5f} N/m\n"
+           f"Intercept = {intercept:.5f} N\n"
+           f"95% CI for Slope: [{conf_int_slope[0]:.5f}, {conf_int_slope[1]:.5f}]\n"
+           f"95% CI for Intercept: [{conf_int_intercept[0]:.5f}, {conf_int_intercept[1]:.5f}]\n"
+           f"R² = {r_squared:.5f}\n"
+           f"Adjusted R² = {adjusted_r_squared:.5f}\n"
+           f"RMSE = {rmse:.5f} N\n"
+           f"SSE = {ss_res:.5f} N²")
+props = dict(boxstyle='round', facecolor='wheat', alpha=0.5)
+plt.gca().text(0.05, 0.95, textstr, transform=plt.gca().transAxes, fontsize=10,
+               verticalalignment='top', bbox=props)
+
+# === Save the figure ===
+save_path = r"C:\Users\ramaa\OneDrive\Nadav\לימודים\בן גוריון\לימודים\הנסדת חורמים\סמסטר ו\מעבדת פיזיקה 2\מגנתויות\Magnetic_Force_vs_Length_Corrected.png"
+plt.savefig(save_path)
+
+# === Print results (optional for console output) ===
+print(f"Saved graph to: {save_path}")
+print(f"Slope = {slope:.5f} N/m")
+print(f"Intercept = {intercept:.5f} N")
+print(f"95% Confidence Interval for Slope: {conf_int_slope}")
+print(f"95% Confidence Interval for Intercept: {conf_int_intercept}")
+print(f"R² = {r_squared:.5f}")
+print(f"Adjusted R² = {adjusted_r_squared:.5f}")
+print(f"RMSE = {rmse:.5f} N")
+print(f"SSE = {ss_res:.5f} N²")

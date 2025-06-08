@@ -1,0 +1,23 @@
+Hardening Laboratory Analysis Report - Ben-Gurion University
+==================================================
+Date: 2025-06-03
+Number of models analyzed: 8
+
+Statistical summary by model:
+------------------------------
+Model 1: mean=52.50, std=0.79, min=51.50, max=53.90, n=9
+Model 2: mean=48.19, std=5.52, min=40.00, max=55.30, n=10
+Model 3: mean=42.29, std=4.40, min=36.20, max=52.10, n=10
+Model 5: mean=51.51, std=0.45, min=51.00, max=52.20, n=8
+Model 6: mean=23.68, std=0.77, min=22.30, max=24.70, n=9
+Model 7: mean=42.92, std=8.83, min=30.40, max=55.70, n=8
+Model 8: mean=33.65, std=17.67, min=16.70, max=57.70, n=4
+Model 4: mean=14.62, std=0.80, min=12.70, max=15.40, n=10
+
+Overall summary: mean=38.63, std=14.39, min=12.70, max=57.70, n=68
+
+Generated graph files:
+  Comparison graphs: graphs/comparisons/
+  Jominy graphs: graphs/jominy/
+  Quench time analysis: graphs/quench_time/
+  Micrograph images: graphs/images/

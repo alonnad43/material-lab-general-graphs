@@ -1,0 +1,48 @@
+# Re-importing necessary packages after code execution environment reset
+import numpy as np
+import matplotlib.pyplot as plt
+from scipy.stats import linregress
+import math
+import os
+
+# Data from the transcribed table
+I = np.array([0.00, 0.50, 0.45, 0.40, 0.35])  # Current in A
+V = np.array([0.0, 45.8, 40.7, 31.7, 0.0])    # Voltage in mV
+I_err = 0.01  # Error in current
+V_err = 0.5   # Error in voltage
+
+# Linear regression
+slope, intercept, r_value, p_value, std_err = linregress(I, V)
+fit_line = slope * I + intercept
+rmse = np.sqrt(np.mean((V - fit_line) ** 2))
+sse = np.sum((V - fit_line) ** 2)
+
+# Plotting
+plt.figure(figsize=(8, 5))
+plt.errorbar(I, V, xerr=I_err, yerr=V_err, fmt='o', capsize=4, label='Measured Voltage vs. Current', color='teal')
+plt.plot(I, fit_line, '-', color='red', label=f'Fit: V = {slope:.2f}·I + {intercept:.2f}')
+plt.xlabel("Current I [A]")
+plt.ylabel("Voltage V [mV]")
+plt.title("Induced Voltage vs. Current in Linear Motion")
+plt.grid(True)
+plt.legend(loc='lower right')
+
+# Annotation box
+textstr = (f"Slope (a) = {slope:.2f} ± {std_err:.2f} mV/A\n"
+           f"Intercept (b) = {intercept:.2f} mV\n"
+           f"R² = {r_value**2:.4f}\n"
+           f"RMSE = {rmse:.3f} mV\n"
+           f"SSE = {sse:.3f} mV²")
+props = dict(boxstyle='round', facecolor='wheat', alpha=0.5)
+plt.gca().text(0.05, 0.95, textstr, transform=plt.gca().transAxes,
+               fontsize=10, verticalalignment='top', bbox=props)
+
+plt.tight_layout()
+
+# Save the plot to the specified directory
+output_dir = r"C:\Users\ramaa\OneDrive\Nadav\לימודים\בן גוריון\לימודים\הנסדת חורמים\סמסטר ו\מעבדת פיזיקה 2\מגנתויות"
+os.makedirs(output_dir, exist_ok=True)
+output_path = os.path.join(output_dir, "Induced_Voltage_vs_Current.png")
+plt.savefig(output_path)
+
+plt.show()

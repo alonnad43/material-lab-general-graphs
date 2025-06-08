@@ -1,0 +1,74 @@
+import numpy as np
+import matplotlib.pyplot as plt
+import os
+from scipy.stats import linregress
+from scipy.optimize import curve_fit
+import sys
+sys.stdout.reconfigure(encoding='utf-8')
+
+# === KEEP ORIGINAL OUTPUT DIRECTORY ===
+output_dir = r"C:\Users\ramaa\OneDrive\Nadav\לימודים\בן גוריון\לימודים\הנסדת חורמים\סמסטר ו\מעבדת פיזיקה 2\גרעין"
+os.makedirs(output_dir, exist_ok=True)
+
+# === RAW DATA ===
+distances = np.array([20.9, 18.5, 16.3, 14.5, 12.4, 10.1, 8.6, 6.5, 4.6, 3.0, 1.5])
+counts = np.array([37, 38, 50, 40, 54, 84, 108, 192, 308, 752, 1326])
+
+# === GRAPH 1: 1/sqrt(N) vs Distance (Linear Fit, No Error Bars) ===
+inv_sqrt_counts = 1 / np.sqrt(counts)
+
+slope1, intercept1, r1, _, _ = linregress(distances, inv_sqrt_counts)
+fit1 = slope1 * distances + intercept1
+rmse1 = np.sqrt(np.mean((inv_sqrt_counts - fit1) ** 2))
+sigma_ratio1 = np.std(inv_sqrt_counts) / np.mean(inv_sqrt_counts)
+
+plt.figure(figsize=(8, 5))
+plt.plot(distances, inv_sqrt_counts, 'o', label='1 / sqrt(N)', color='blue')
+plt.plot(distances, fit1, '-', color='red', label=f'Fit: y = {slope1:.2f}x + {intercept1:.2f}')
+plt.xlabel("Distance from Source [cm]")
+plt.ylabel("1 / sqrt(Counts)")
+plt.title("Graph 1: 1/sqrt(N) vs Distance")
+plt.grid(True)
+plt.legend(loc="lower right")
+
+stats_box1 = f"R² = {r1**2:.4f}\nRMSE = {rmse1:.3f}\nSlope = {slope1:.3f}\nσ / ⟨N⟩ = {sigma_ratio1:.3f}"
+plt.gca().text(0.05, 0.95, stats_box1, transform=plt.gca().transAxes,
+               fontsize=10, verticalalignment='top', horizontalalignment='left',
+               bbox=dict(boxstyle='round', facecolor='wheat', alpha=0.5))
+plt.tight_layout()
+plt.savefig(os.path.join(output_dir, "Graph_1_1_sqrt_N_vs_Distance_NO_ERR_FIXED.png"))
+plt.close()
+
+# === GRAPH 2: Counts vs Distance (Gaussian Fit) ===
+def gaussian(x, a, x0, sigma):
+    return a * np.exp(-((x - x0)**2) / (2 * sigma**2))
+
+a0 = np.max(counts)
+x0 = distances[np.argmax(counts)]
+sigma0 = (np.max(distances) - np.min(distances)) / 3
+bounds = ([0, 0, 0.1], [2000, 25, 15])  # Fit bounds for stability
+
+popt, _ = curve_fit(gaussian, distances, counts, p0=[a0, x0, sigma0],
+                    bounds=bounds, maxfev=10000)
+gauss_fit = gaussian(distances, *popt)
+rmse2 = np.sqrt(np.mean((counts - gauss_fit)**2))
+sigma_ratio2 = np.std(counts) / np.mean(counts)
+
+plt.figure(figsize=(8, 5))
+plt.plot(distances, counts, 'o', label='Counts', color='green')
+plt.plot(distances, gauss_fit, '-', label='Gaussian Fit', color='red')
+plt.xlabel("Distance from Source [cm]")
+plt.ylabel("Counts")
+plt.title("Graph 2: Counts vs Distance (Gaussian Fit)")
+plt.grid(True)
+plt.legend(loc="lower left")
+
+stats_box2 = (f"RMSE = {rmse2:.3f}\n"
+              f"Fit: a * exp(-((x - x₀)²)/(2σ²))\n"
+              f"a = {popt[0]:.1f}, x₀ = {popt[1]:.2f}, σ = {popt[2]:.2f}")
+plt.gca().text(0.95, 0.95, stats_box2, transform=plt.gca().transAxes,
+               fontsize=10, verticalalignment='top', horizontalalignment='right',
+               bbox=dict(boxstyle='round', facecolor='wheat', alpha=0.5))
+plt.tight_layout()
+plt.savefig(os.path.join(output_dir, "Graph_2_Counts_vs_Distance_GAUSS_FIXED_BOUNDED.png"))
+plt.close()

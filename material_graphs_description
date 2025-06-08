@@ -1,0 +1,346 @@
+# -------------------------------------------------------
+# Import required modules
+# -------------------------------------------------------
+import os  # For interacting with the operating system and file paths
+import pandas as pd  # For data manipulation and CSV file reading
+import numpy as np  # For numerical operations
+import matplotlib.pyplot as plt  # For plotting graphs
+from scipy.optimize import curve_fit  # For curve fitting to determine Young's modulus
+import re  # For sanitizing filenames by removing problematic characters
+
+# -------------------------------------------------------
+# Top-Level Documentation
+# -------------------------------------------------------
+"""
+This script processes experimental CSV data and generates graphs for various
+material science experiments. Supported experiments include:
+    - Stress-Strain
+    - Impact Energy
+    - TTT Diagram
+    - TGA Analysis
+    - Hardness Profile
+
+The script prompts the user for CSV file names, detects the experiment type
+based on the CSV columns, processes the data, and saves the resulting graphs
+in a dedicated "graphs" directory. Each function includes error handling,
+input validation, and detailed inline comments.
+"""
+
+# -------------------------------------------------------
+# Setup directories for saving graphs
+# -------------------------------------------------------
+BASE_DIR = os.getcwd()  # Get the current working directory
+PHOTOS_DIR = os.path.join(BASE_DIR, "graphs")  # Define the directory for saving graphs
+os.makedirs(PHOTOS_DIR, exist_ok=True)  # Create the directory if it doesn't already exist
+
+
+# -------------------------------------------------------
+# Function: sanitize_filename
+# Purpose: Remove or replace problematic characters from a filename.
+# -------------------------------------------------------
+def sanitize_filename(filename):
+    """
+    Sanitize the filename by replacing any non-alphanumeric characters
+    with an underscore.
+    """
+    # Use a regular expression to substitute non-alphanumeric characters
+    return re.sub(r'\W+', '_', filename)
+
+
+# -------------------------------------------------------
+# Function: get_csv_files
+# Purpose: Prompt the user for CSV filenames and return a list of sanitized filenames.
+# -------------------------------------------------------
+def get_csv_files():
+    """
+    Prompt the user to input CSV filenames (separated by commas) and return
+    a list of filenames.
+    """
+    # Prompt user for input
+    print("Enter the CSV filenames (separated by commas if multiple):")
+    # Read user input and split by commas
+    files = input().strip().split(',')
+    # Strip extra whitespace and ignore empty entries
+    files = [f.strip() for f in files if f.strip()]
+    return files
+
+
+# -------------------------------------------------------
+# Function: detect_experiment_type
+# Purpose: Identify the experiment type based on DataFrame column names.
+# -------------------------------------------------------
+def detect_experiment_type(df):
+    """
+    Detect the type of experiment based on the DataFrame's column names.
+    The function normalizes column names to lower-case for robust matching.
+    Returns a string indicating the experiment type.
+    """
+    # Create a list of lower-case column names for comparison
+    lower_columns = [col.lower() for col in df.columns]
+
+    # Check for Stress-Strain experiment conditions
+    if "loadcell n" in lower_columns and any("strain" in col for col in lower_columns):
+        return "Stress-Strain"
+    # Check for Impact Energy experiment conditions
+    elif "temperature" in lower_columns and "impact energy" in lower_columns:
+        return "Impact Energy"
+    # Check for TTT Diagram experiment conditions
+    elif "time (s)" in lower_columns and "temperature (c)" in lower_columns:
+        return "TTT Diagram"
+    # Check for TGA Analysis experiment conditions
+    elif "temperature (c)" in lower_columns and "mass (%)" in lower_columns:
+        return "TGA Analysis"
+    # Check for Hardness Profile experiment conditions
+    elif "depth (mm)" in lower_columns and "hardness (hv)" in lower_columns:
+        return "Hardness Profile"
+    else:
+        return "Unknown"
+
+
+# -------------------------------------------------------
+# Function: plot_stress_strain
+# Purpose: Process data and plot a Stress-Strain curve.
+# -------------------------------------------------------
+def plot_stress_strain(df, filename):
+    """
+    Process the DataFrame to generate a Stress-Strain curve plot.
+    This includes calculating engineering and true stress, determining
+    Young's modulus via a linear fit over the elastic region, and marking
+    the yield point (offset strain of 0.002).
+    """
+    # Identify the strain column (case-insensitive search)
+    strain_cols = [col for col in df.columns if "strain" in col.lower()]
+    if not strain_cols:
+        print("❌ No strain column found in the data.")
+        return
+    disp_col = strain_cols[0]  # Use the first matching column
+
+    # Define the load column (assuming exact column name)
+    load_col = "Loadcell N"
+
+    # Convert strain values to numeric, coercing non-numeric values to NaN
+    df[disp_col] = pd.to_numeric(df[disp_col], errors='coerce')
+    # Convert load values to numeric
+    df[load_col] = pd.to_numeric(df[load_col], errors='coerce')
+    # Remove rows with NaN values in critical columns
+    df.dropna(subset=[disp_col, load_col], inplace=True)
+
+    # Define default material dimensions (can be parameterized if needed)
+    thickness = 2.0  # Thickness in mm
+    width = 6.0  # Width in mm
+    gauge_length = 50.0  # Gauge length in mm (not directly used)
+    A0 = thickness * width  # Calculate the cross-sectional area
+
+    # Calculate Engineering Stress (force divided by area)
+    df["Engineering Stress"] = df[load_col] / A0
+    # Calculate True Stress (accounting for strain)
+    df["True Stress"] = df["Engineering Stress"] * (1 + df[disp_col])
+
+    # Define the elastic region: strain values between 0.0005 and 0.002
+    elastic_mask = (df[disp_col] > 0.0005) & (df[disp_col] < 0.002)
+    elastic_region = df[elastic_mask]
+
+    young_modulus = np.nan  # Initialize Young's modulus as not a number (NaN)
+    if len(elastic_region) >= 2:
+        # Extract strain and stress data for the elastic region
+        x_el = elastic_region[disp_col].values
+        y_el = elastic_region["Engineering Stress"].values
+        try:
+            # Fit a linear function (y = m*x + b) to the elastic region data
+            popt, _ = curve_fit(lambda x, m, b: m * x + b, x_el, y_el)
+            young_modulus = popt[0]  # The slope represents Young's modulus
+        except Exception as e:
+            # Print error message if the curve fitting fails
+            print(f"Curve fitting error in {filename}: {e}")
+
+    # Determine yield point using an offset strain of 0.002
+    yield_stress = young_modulus * 0.002 if not np.isnan(young_modulus) else np.nan
+    yield_strain = 0.002
+
+    # Create the plot with a defined figure size
+    fig, ax = plt.subplots(figsize=(8, 5))
+    # Plot Engineering Stress vs. Strain
+    ax.plot(df[disp_col], df["Engineering Stress"], label="Engineering Stress", color="blue")
+    # Plot True Stress vs. Strain
+    ax.plot(df[disp_col], df["True Stress"], label="True Stress", color="red")
+    # Draw a vertical line at the yield strain (offset 0.002)
+    ax.axvline(yield_strain, linestyle="--", color="orange", label="Offset 0.002")
+
+    # Set axis labels and plot title
+    ax.set_xlabel("Strain")
+    ax.set_ylabel("Stress (MPa)")
+    ax.set_title(f"{sanitize_filename(filename)} - Stress-Strain Curve")
+    ax.legend()
+    ax.grid(True)
+
+    # Construct the save path for the image
+    save_path = os.path.join(PHOTOS_DIR, f"stress_strain_{sanitize_filename(filename)}.png")
+    # Save the figure to the specified path
+    fig.savefig(save_path)
+    plt.close(fig)  # Close the figure to free memory
+    print(f"✔ Saved: {save_path}")
+
+
+# -------------------------------------------------------
+# Function: plot_impact_energy
+# Purpose: Process data and plot an Impact Energy test.
+# -------------------------------------------------------
+def plot_impact_energy(df, filename):
+    """
+    Process the DataFrame to generate an Impact Energy test plot.
+    This function plots Temperature vs. Impact Energy.
+    """
+    # Create a new figure and axes object with defined size
+    fig, ax = plt.subplots(figsize=(8, 5))
+    # Plot Temperature vs. Impact Energy with markers and lines
+    ax.plot(df["Temperature"], df["Impact Energy"], marker="o", linestyle="-", color="red")
+
+    # Set the axis labels and title for the plot
+    ax.set_xlabel("Temperature (°C)")
+    ax.set_ylabel("Impact Energy (J)")
+    ax.set_title(f"{sanitize_filename(filename)} - Impact Energy Test")
+    ax.grid(True)
+
+    # Define the save path for the plot image
+    save_path = os.path.join(PHOTOS_DIR, f"impact_energy_{sanitize_filename(filename)}.png")
+    # Save the plot to the designated file
+    fig.savefig(save_path)
+    plt.close(fig)
+    print(f"✔ Saved: {save_path}")
+
+
+# -------------------------------------------------------
+# Function: plot_ttt_diagram
+# Purpose: Process data and plot a TTT Diagram.
+# -------------------------------------------------------
+def plot_ttt_diagram(df, filename):
+    """
+    Process the DataFrame to generate a TTT Diagram.
+    This function plots Time (s) vs. Temperature (°C).
+    """
+    # Create a figure and axes for the plot
+    fig, ax = plt.subplots(figsize=(8, 5))
+    # Plot Time vs. Temperature with markers and dashed lines
+    ax.plot(df["Time (s)"], df["Temperature (C)"], marker="o", linestyle="--", color="blue")
+
+    # Set axis labels and title for the diagram
+    ax.set_xlabel("Time (s)")
+    ax.set_ylabel("Temperature (°C)")
+    ax.set_title(f"{sanitize_filename(filename)} - TTT Diagram")
+    ax.grid(True)
+
+    # Construct the file path for saving the plot
+    save_path = os.path.join(PHOTOS_DIR, f"ttt_diagram_{sanitize_filename(filename)}.png")
+    # Save the generated plot image
+    fig.savefig(save_path)
+    plt.close(fig)
+    print(f"✔ Saved: {save_path}")
+
+
+# -------------------------------------------------------
+# Function: plot_tga_analysis
+# Purpose: Process data and plot a TGA Analysis.
+# -------------------------------------------------------
+def plot_tga_analysis(df, filename):
+    """
+    Process the DataFrame to generate a TGA Analysis plot.
+    This function plots Temperature (°C) vs. Mass (%).
+    """
+    # Create a new figure and axes object for the plot
+    fig, ax = plt.subplots(figsize=(8, 5))
+    # Plot Temperature vs. Mass with a solid line
+    ax.plot(df["Temperature (C)"], df["Mass (%)"], linestyle="-", color="green")
+
+    # Set the labels and title for the plot
+    ax.set_xlabel("Temperature (°C)")
+    ax.set_ylabel("Mass (%)")
+    ax.set_title(f"{sanitize_filename(filename)} - TGA Analysis")
+    ax.grid(True)
+
+    # Define the file path for saving the image
+    save_path = os.path.join(PHOTOS_DIR, f"tga_analysis_{sanitize_filename(filename)}.png")
+    # Save the plot to the designated file
+    fig.savefig(save_path)
+    plt.close(fig)
+    print(f"✔ Saved: {save_path}")
+
+
+# -------------------------------------------------------
+# Function: plot_hardness_profile
+# Purpose: Process data and plot a Hardness Profile.
+# -------------------------------------------------------
+def plot_hardness_profile(df, filename):
+    """
+    Process the DataFrame to generate a Hardness Profile plot.
+    This function plots Depth (mm) vs. Hardness (HV).
+    """
+    # Create a figure and axes for the hardness profile plot
+    fig, ax = plt.subplots(figsize=(8, 5))
+    # Plot Depth vs. Hardness with markers and a solid line
+    ax.plot(df["Depth (mm)"], df["Hardness (HV)"], marker="o", linestyle="-", color="purple")
+
+    # Set axis labels and the plot title
+    ax.set_xlabel("Depth (mm)")
+    ax.set_ylabel("Hardness (HV)")
+    ax.set_title(f"{sanitize_filename(filename)} - Hardness Profile")
+    ax.grid(True)
+
+    # Define the file path for the saved plot image
+    save_path = os.path.join(PHOTOS_DIR, f"hardness_profile_{sanitize_filename(filename)}.png")
+    # Save the plot image to the specified path
+    fig.savefig(save_path)
+    plt.close(fig)
+    print(f"✔ Saved: {save_path}")
+
+
+# -------------------------------------------------------
+# Main Execution Function
+# -------------------------------------------------------
+def main():
+    """
+    Main function to execute the data processing and plotting.
+    It prompts for CSV files, reads each file, detects the experiment type,
+    and calls the corresponding plotting function.
+    """
+    # Retrieve the list of CSV filenames from the user
+    csv_files = get_csv_files()
+
+    # Process each provided CSV file individually
+    for filename in csv_files:
+        # Check if the file exists
+        if not os.path.exists(filename):
+            print(f"❌ File not found: {filename}")
+            continue
+        try:
+            # Attempt to read the CSV file into a DataFrame
+            df = pd.read_csv(filename, encoding='utf-8')
+        except Exception as e:
+            # Print error message if the file cannot be read
+            print(f"❌ Error reading {filename}: {e}")
+            continue
+
+        # Determine the experiment type based on DataFrame columns
+        experiment_type = detect_experiment_type(df)
+
+        # Call the appropriate plotting function based on the experiment type
+        if experiment_type == "Stress-Strain":
+            plot_stress_strain(df, filename)
+        elif experiment_type == "Impact Energy":
+            plot_impact_energy(df, filename)
+        elif experiment_type == "TTT Diagram":
+            plot_ttt_diagram(df, filename)
+        elif experiment_type == "TGA Analysis":  # Correct experiment type name
+            plot_tga_analysis(df, filename)
+        elif experiment_type == "Hardness Profile":
+            plot_hardness_profile(df, filename)
+        else:
+            # Inform the user if the experiment type is unrecognized
+            print(f"⚠ Unknown experiment type for {filename}")
+
+
+# -------------------------------------------------------
+# Script Entry Point
+# -------------------------------------------------------
+if __name__ == "__main__":
+    # Run the main function when the script is executed
+    main()

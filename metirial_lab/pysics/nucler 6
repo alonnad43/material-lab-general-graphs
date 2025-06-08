@@ -1,0 +1,75 @@
+import numpy as np
+import matplotlib.pyplot as plt
+from scipy.stats import linregress
+import os
+import sys
+
+# Set default encoding to UTF-8
+sys.stdout.reconfigure(encoding='utf-8')
+
+# Updated output directory
+output_dir = r"C:\Users\ramaa\OneDrive\Nadav\לימודים\בן גוריון\לימודים\הנסדת חורמים\סמסטר ו\מעבדת פיזיקה 2\גרעין"
+os.makedirs(output_dir, exist_ok=True)
+
+# === Sn (בדיל) Data ===
+x_sn = np.array([0.00, 0.23, 0.45, 0.67, 0.89, 1.11])
+N_sn = np.array([1870, 1456, 1220, 950, 751, 611])
+lnN_sn = np.log(N_sn)
+
+slope_sn, intercept_sn, r_sn, _, stderr_sn = linregress(x_sn, lnN_sn)
+mu_sn = -slope_sn
+mu_sn_err = stderr_sn
+r2_sn = r_sn**2  # Coefficient of determination
+
+plt.figure(figsize=(8, 5))
+plt.plot(x_sn, lnN_sn, 'o', label='ln(N) - Sn')
+plt.plot(x_sn, slope_sn * x_sn + intercept_sn, '-', label=f'Fit: ln(N) = {slope_sn:.3f}x + {intercept_sn:.3f}')
+plt.xlabel("Total Thickness [cm]")
+plt.ylabel("ln(Counts)")
+plt.title("Attenuation in Sn – ln(N) vs Thickness")
+plt.legend()
+plt.grid(True)
+plt.tight_layout()
+# Add statistical analysis text to the bottom-left corner of the graph
+plt.text(0.05, 0.05, f"μ = {mu_sn:.3f}\nμ_err = {mu_sn_err:.3f}\nR² = {r2_sn:.3f}",
+         transform=plt.gca().transAxes, fontsize=10, verticalalignment='bottom', horizontalalignment='left')
+try:
+    plt.savefig(os.path.join(output_dir, "Graph_lnN_vs_x_Sn.png"))
+    print("Sn graph saved successfully.")
+except Exception as e:
+    print(f"Error saving Sn graph: {e}")
+plt.close()
+
+# === Al (אלומיניום) Data ===
+x_al = np.array([0.66, 1.32, 1.98, 2.64])
+N_al = np.array([1420, 1202, 1027, 807])
+lnN_al = np.log(N_al)
+
+slope_al, intercept_al, r_al, _, stderr_al = linregress(x_al, lnN_al)
+mu_al = -slope_al
+mu_al_err = stderr_al
+r2_al = r_al**2  # Coefficient of determination
+
+plt.figure(figsize=(8, 5))
+plt.plot(x_al, lnN_al, 'o', label='ln(N) - Al')
+plt.plot(x_al, slope_al * x_al + intercept_al, '-', label=f'Fit: ln(N) = {slope_al:.3f}x + {intercept_al:.3f}')
+plt.xlabel("Total Thickness [cm]")
+plt.ylabel("ln(Counts)")
+plt.title("Attenuation in Al – ln(N) vs Thickness")
+plt.legend()
+plt.grid(True)
+plt.tight_layout()
+# Add statistical analysis text to the bottom-left corner of the graph
+plt.text(0.05, 0.05, f"μ = {mu_al:.3f}\nμ_err = {mu_al_err:.3f}\nR² = {r2_al:.3f}",
+         transform=plt.gca().transAxes, fontsize=10, verticalalignment='bottom', horizontalalignment='left')
+try:
+    plt.savefig(os.path.join(output_dir, "Graph_lnN_vs_x_Al.png"))
+    print("Al graph saved successfully.")
+except Exception as e:
+    print(f"Error saving Al graph: {e}")
+plt.close()
+
+# Print calculated values
+print(f"Sn: mu = {mu_sn:.3f}, mu_err = {mu_sn_err:.3f}, R^2 = {r2_sn:.3f}")
+print(f"Al: mu = {mu_al:.3f}, mu_err = {mu_al_err:.3f}, R^2 = {r2_al:.3f}")
+print(f"Graphs saved in: {output_dir}")

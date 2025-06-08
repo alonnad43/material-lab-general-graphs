@@ -1,0 +1,146 @@
+import numpy as np
+import matplotlib.pyplot as plt
+from scipy.stats import linregress
+import os
+
+# === Experimental Data ===
+
+# Part A – Without Metal Core
+IA_empty = np.array([0.0, 0.4, 0.8, 1.2, 1.6, 2.0])
+IB_empty = np.array([0.0, 9.3, 16.9, 24.1, 31.2, 38.3])
+IB_empty_err = 0.5  # mA
+IA_empty_err = 0.01  # A
+
+# Part B – With Metal Core
+IA_core = np.array([0.0, 0.4, 0.8, 1.2, 1.6])
+IB_core = np.array([0.0, 36.8, 67.4, 98.2, 128.5])
+IB_core_err = 0.5
+IA_core_err = 0.01
+
+# Part C – Effect of Distance (IA = constant)
+d = np.array([1, 2, 3, 4, 5])  # cm
+IB_dist = np.array([22.7, 15.9, 12.2, 9.1, 7.1])
+IB_dist_err = 0.5
+
+# === Output directory ===
+output_dir = r"C:\Users\ramaa\OneDrive\Nadav\לימודים\בן גוריון\לימודים\הנסדת חורמים\סמסטר ו\מעבדת פיזיקה 2\מגנתויות\Nisui_2.3.1_Graphs"
+os.makedirs(output_dir, exist_ok=True)
+
+# Debugging: Print output paths to verify saving
+print(f"Saving Part A graph to: {os.path.join(output_dir, 'Part_A_IB_vs_IA_Empty_Coil.png')}")
+print(f"Saving Part B graph to: {os.path.join(output_dir, 'Part_B_IB_vs_IA_With_Core.png')}")
+print(f"Saving Part C graph to: {os.path.join(output_dir, 'Part_C_IB_vs_Distance.png')}")
+
+# === Helper function for linear fit plots ===
+def plot_with_linear_fit(x, y, x_err, y_err, xlabel, ylabel, title, filename, color, label_desc):
+    slope, intercept, r_value, p_value, std_err = linregress(x, y)
+    fit_line = slope * x + intercept
+    rmse = np.sqrt(np.mean((y - fit_line) ** 2))
+    sse = np.sum((y - fit_line) ** 2)
+
+    plt.figure(figsize=(8, 5))
+    plt.errorbar(x, y, xerr=x_err, yerr=y_err, fmt='o', capsize=4, label=label_desc, color=color)
+    plt.plot(x, fit_line, '-', label=f'Fit: IB = {slope:.2f}·IA + {intercept:.2f}', color='red')
+    plt.xlabel(xlabel)
+    plt.ylabel(ylabel)
+    plt.title(title)
+    plt.grid(True)
+    plt.legend(loc='lower right')
+
+    textstr = (f"Slope (a) = {slope:.3f} ± {std_err:.3f} mA/A\n"
+               f"Intercept (b) = {intercept:.2f} ± {std_err:.2f} mA\n"
+               f"R² = {r_value**2:.4f}\n"
+               f"RMSE = {rmse:.3f} mA\n"
+               f"SSE = {sse:.3f} mA²")
+    props = dict(boxstyle='round', facecolor='wheat', alpha=0.5)
+    plt.gca().text(0.05, 0.95, textstr, transform=plt.gca().transAxes,
+                   fontsize=10, verticalalignment='top', bbox=props)
+
+    plt.tight_layout()
+    plt.savefig(os.path.join(output_dir, filename))
+    plt.close()
+
+# === Plot A: Empty Coil ===
+plot_with_linear_fit(
+    IA_empty, IB_empty,
+    x_err=IA_empty_err, y_err=IB_empty_err,
+    xlabel="IA [A]", ylabel="IB [mA]",
+    title="Part A: IB vs. IA (Empty Coil)",
+    filename="Part_A_IB_vs_IA_Empty_Coil.png",
+    color='blue',
+    label_desc="Induced Current Without Core"
+)
+
+# === Plot B: With Metal Core ===
+plot_with_linear_fit(
+    IA_core, IB_core,
+    x_err=IA_core_err, y_err=IB_core_err,
+    xlabel="IA [A]", ylabel="IB [mA]",
+    title="Part B: IB vs. IA (With Metal Core)",
+    filename="Part_B_IB_vs_IA_With_Core.png",
+    color='green',
+    label_desc="Induced Current With Core"
+)
+
+# === Plot C: Distance Effect ===
+slope_c, intercept_c, *_ = linregress(d, IB_dist)
+fit_line_c = slope_c * d + intercept_c
+rmse_c = np.sqrt(np.mean((IB_dist - fit_line_c) ** 2))
+sse_c = np.sum((IB_dist - fit_line_c) ** 2)
+
+plt.figure(figsize=(8, 5))
+plt.errorbar(d, IB_dist, yerr=IB_dist_err, fmt='o', capsize=4, color='purple', label='Induced Current vs Distance')
+plt.plot(d, fit_line_c, '--', color='black', label=f'Fit: IB = {slope_c:.2f}·d + {intercept_c:.2f}')
+plt.xlabel("Distance d [cm]")
+plt.ylabel("IB [mA]")
+plt.title("Part C: IB vs. Distance Between Coils")
+plt.grid(True)
+plt.legend(loc='lower left')
+
+textstr = (f"A = {slope_c:.5f} mA/cm\n"
+           f"B = {intercept_c:.5f} mA\n"
+           f"RMSE = {rmse_c:.3f} mA\n"
+           f"SSE = {sse_c:.3f} mA²")
+props = dict(boxstyle='round', facecolor='wheat', alpha=0.5)
+plt.gca().text(0.95, 0.95, textstr, transform=plt.gca().transAxes,
+               fontsize=10, verticalalignment='top', horizontalalignment='right', bbox=props)
+
+plt.tight_layout()
+plt.savefig(os.path.join(output_dir, "Part_C_IB_vs_Distance.png"))
+plt.close()
+
+# === Plot C: Exponential Decay Fit ===
+from scipy.optimize import curve_fit
+
+def exp_fit(d, a, b):
+    return a * np.exp(b * d)
+
+popt, pcov = curve_fit(exp_fit, d, IB_dist)
+a, b = popt
+perr = np.sqrt(np.diag(pcov))  # Uncertainties in a and b
+rmse_c = np.sqrt(np.mean((IB_dist - exp_fit(d, *popt)) ** 2))
+sse_c = np.sum((IB_dist - exp_fit(d, *popt)) ** 2)
+
+plt.figure(figsize=(8, 5))
+plt.errorbar(d, IB_dist, yerr=IB_dist_err, fmt='o', capsize=4, color='purple', label='Measured IB at d')
+plt.plot(d, exp_fit(d, *popt), '-', color='red', label=f'Fit: IB = {a:.2f}·exp({b:.2f}·d)')
+plt.xlabel("Distance d [cm]")
+plt.ylabel("IB [mA]")
+plt.title("Induced Current IB vs. Distance Between Coils")
+plt.grid(True)
+plt.legend(loc='lower left')
+
+textstr = (f"a = {a:.3f} ± {perr[0]:.3f} mA\n"
+           f"b = {b:.3f} ± {perr[1]:.3f} 1/cm\n"
+           f"R² = {1 - (sse_c / np.sum((IB_dist - np.mean(IB_dist)) ** 2)):.4f}\n"
+           f"RMSE = {rmse_c:.3f} mA\n"
+           f"SSE = {sse_c:.3f} mA²")
+props = dict(boxstyle='round', facecolor='wheat', alpha=0.5)
+plt.gca().text(0.95, 0.95, textstr, transform=plt.gca().transAxes,
+               fontsize=10, verticalalignment='top', horizontalalignment='right', bbox=props)
+
+plt.tight_layout()
+plt.savefig(os.path.join(output_dir, "Part_C_IB_vs_Distance.png"))
+plt.close()
+
+output_dir
