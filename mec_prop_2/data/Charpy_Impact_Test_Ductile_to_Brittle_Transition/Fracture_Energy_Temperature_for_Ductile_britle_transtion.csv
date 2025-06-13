@@ -1,0 +1,8 @@
+Sample No.,Temperature [°C],Fracture Energy [kpm],Fracture Energy [J],was there a problem
+1,-142,0.25,,no
+2,-72,0.3,,no
+3,-42,0.35,,no
+4,-19,1.05,,yes
+5,-10,0.75,,no 
+6,10,5,,no 
+7,23,5,,no

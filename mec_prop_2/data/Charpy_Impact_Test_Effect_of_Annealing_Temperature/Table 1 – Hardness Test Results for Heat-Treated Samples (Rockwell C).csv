@@ -1,0 +1,5 @@
+Sample Type,Measurement 1,Measurement 2,Measurement 3
+No Annealing,51,53,53
+Annealing at 200°C,53,53,54
+Annealing at 400°C,42,42,42
+Annealing at 670°C,21,23,20
